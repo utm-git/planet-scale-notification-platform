@@ -13,6 +13,9 @@ import java.util.List;
 public class FanoutWorker {
     private final EventBus eventBus;
     private final NotificationStateStore stateStore;
+    
+    // Constant configuring partition distribution logic
+    private static final int NUM_KAFKA_PARTITIONS = 1000;
 
     public FanoutWorker(EventBus eventBus, NotificationStateStore stateStore) {
         this.eventBus = eventBus;
@@ -29,8 +32,22 @@ public class FanoutWorker {
             stateStore.save(individualizedNotif);
 
             String channelTopic = "deliver-" + individualizedNotif.getChannel().name().toLowerCase();
-            eventBus.publish(channelTopic, userId, individualizedNotif);
+            
+            // Consistent Hashing partition sizing avoiding Celebrity hotspots
+            String deterministicPartitionKey = calculateConsistentHashPartition(userId);
+            eventBus.publish(channelTopic, deterministicPartitionKey, individualizedNotif);
         }
+    }
+
+    /**
+     * Prevents single partition bottlenecks during viral 100M fanouts.
+     * By sharding strictly on User ID rather than Campaign ID, 
+     * messages naturally spread across the cluster.
+     */
+    private String calculateConsistentHashPartition(String userId) {
+        int hash = Math.abs(userId.hashCode());
+        int partition = hash % NUM_KAFKA_PARTITIONS;
+        return "partition-" + partition;
     }
 
     private Channel resolveUserChannelPreference(String userId) {
