@@ -14,6 +14,10 @@ public class Notification {
     private Status status;
     private int retryCount;
 
+    // Orchestrated Observability (OpenTelemetry simulation)
+    private String traceId;
+    private String spanId;
+
     public Notification(String idempotencyKey, String userId, Priority priority) {
         this.notificationId = UUID.randomUUID().toString();
         this.idempotencyKey = idempotencyKey;
@@ -21,5 +25,10 @@ public class Notification {
         this.priority = priority;
         this.status = Status.PENDING;
         this.retryCount = 0;
+        
+        // At ingestion, we would typically extract X-B3-TraceId from headers
+        // but here we initialize a fresh sequence for the simulation
+        this.traceId = UUID.randomUUID().toString();
+        this.spanId = UUID.randomUUID().toString();
     }
 }
